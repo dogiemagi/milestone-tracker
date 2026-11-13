@@ -35,7 +35,11 @@ const ICONS = {
   cpu: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/>',
   rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
   building: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
-  coffee: '<path d="M17 8h1a4 4 0 1 1 0 8h-1M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z"/><path d="M6 2v2M10 2v2M14 2v2"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>',
+  left: '<path d="m15 18-6-6 6-6"/>',
+  right: '<path d="m9 18 6-6-6-6"/>',
+  coffee:'<path d="M17 8h1a4 4 0 1 1 0 8h-1M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z"/><path d="M6 2v2M10 2v2M14 2v2"/>',
   pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
   clipboard:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
   check: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
@@ -50,6 +54,53 @@ const ICONS = {
 };
 const icon = (n, s = 18) => `<svg class="i" width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
 const NAV = [['Dashboard', 'dashboard'], ['Daily Tracker', 'calendar'], ['Job Hunt', 'briefcase'], ['AI Learning', 'cpu'], ['Startup', 'rocket'], ['Mondee Learning', 'building'], ['Weekly Review', 'clipboard']];
+
+// ---------- Light / dark theme ----------
+const isDark = () => document.documentElement.dataset.theme
+  ? document.documentElement.dataset.theme === 'dark'
+  : matchMedia('(prefers-color-scheme: dark)').matches;
+function paintTheme() {
+  const dark = isDark();
+  $('#theme').innerHTML = `${icon(dark ? 'sun' : 'moon', 16)} <span class="lb">${dark ? 'Light mode' : 'Dark mode'}</span>`;
+  $('#auththeme').innerHTML = icon(dark ? 'sun' : 'moon', 18);
+}
+function toggleTheme() {
+  const next = isDark() ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('theme', next); } catch (e) { /* private mode: still applies for this visit */ }
+  paintTheme();
+}
+$('#theme').onclick = toggleTheme;
+$('#auththeme').onclick = toggleTheme;
+paintTheme();
+
+// ---------- Calendar picker (used in settings) ----------
+function mountCalendar(el, getStart, getN, onPick) {
+  const pad2 = (n) => String(n).padStart(2, '0');
+  let y, m;
+  const sync = () => { const [yy, mm] = (getStart() || startISO()).split('-').map(Number); y = yy; m = mm - 1; draw(); };
+  function draw() {
+    const start = getStart() || startISO(), n = getN();
+    const end = n >= 1 ? isoPlus(start, n - 1) : start;
+    const first = new Date(Date.UTC(y, m, 1)), lead = first.getUTCDay(), dim = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    const label = first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    let cells = '<span></span>'.repeat(lead);
+    for (let d = 1; d <= dim; d++) {
+      const iso = `${y}-${pad2(m + 1)}-${pad2(d)}`;
+      const cls = iso === start ? 'sel' : iso === end ? 'sel end' : iso > start && iso < end ? 'in' : '';
+      cells += `<button type="button" class="cd ${cls} ${iso === todayISO() ? 'td' : ''}" data-d="${iso}">${d}</button>`;
+    }
+    el.innerHTML = `<div class="calh"><button type="button" data-nav="-1" aria-label="Previous month">${icon('left', 16)}</button><b>${label}</b><button type="button" data-nav="1" aria-label="Next month">${icon('right', 16)}</button></div>
+      <div class="calw">${'SMTWTFS'.split('').map((x) => `<span>${x}</span>`).join('')}</div><div class="calg">${cells}</div>`;
+  }
+  el.onclick = (e) => {
+    const nav = e.target.closest('[data-nav]'), day = e.target.closest('[data-d]');
+    if (nav) { m += +nav.dataset.nav; if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } draw(); }
+    if (day) onPick(day.dataset.d);
+  };
+  sync();
+  return { draw, sync };
+}
 
 async function load(table, order) {
   const q = sb.from(table).select('*');
@@ -105,16 +156,18 @@ function changeSettings() {
   m.className = 'modal';
   m.innerHTML = `<div class="card"><h3>Challenge settings</h3>
     <label><span class="lbl">Start date</span><input type="date" id="sd" value="${startISO()}"></label>
+    <div id="cal" class="cal"></div>
     <label style="display:block;margin-top:12px"><span class="lbl">Number of days (14 - 365)</span><input type="number" id="nd" min="14" max="365" value="${TOTAL_DAYS}"></label>
     <div class="chips" style="margin-top:8px">${[30, 60, 89, 100, 180].map((n) => `<button type="button" class="chip" data-n="${n}">${n}</button>`).join('')}</div>
     <p class="muted">Ends on <b id="endd"></b>. The roadmap phases and targets scale to the new length. Days you already worked on keep their notes and hours; untouched days get refreshed tasks.</p>
     <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ghost" id="mc">Cancel</button><button class="btn" id="ms">Save</button></div></div>`;
   document.body.appendChild(m);
   const upd = () => { const v = $('#sd').value, n = +$('#nd').value; $('#endd').textContent = v && n >= 14 ? longDate(isoPlus(v, n - 1)) : '-'; };
-  upd(); $('#sd').oninput = upd; $('#nd').oninput = upd;
+  const cal = mountCalendar($('#cal'), () => $('#sd').value, () => +$('#nd').value || 0, (iso) => { $('#sd').value = iso; upd(); cal.draw(); });
+  upd(); $('#sd').oninput = () => { upd(); cal.sync(); }; $('#nd').oninput = () => { upd(); cal.draw(); };
   m.onclick = (e) => {
     if (e.target === m || e.target.id === 'mc') m.remove();
-    const c = e.target.closest('[data-n]'); if (c) { $('#nd').value = c.dataset.n; upd(); }
+    const c = e.target.closest('[data-n]'); if (c) { $('#nd').value = c.dataset.n; upd(); cal.draw(); }
   };
   $('#ms').onclick = async () => {
     const iso = $('#sd').value, n = Math.round(+$('#nd').value);
