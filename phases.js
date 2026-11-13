@@ -46,24 +46,29 @@ const BASE_TARGETS = {
 };
 
 // Scale the 89-day roadmap and targets to any challenge length (14-365 days).
-window.setPlan = function (n) {
+// `custom` (optional) replaces the starter roadmap with the user's own phases (absolute day ranges).
+window.setPlan = function (n, custom) {
   n = Math.max(14, Math.min(365, Math.round(Number(n)) || BASE_DAYS));
   window.TOTAL_DAYS = n;
   let prev = 0;
-  window.PHASES = BASE_PHASES.map((p, i) => {
-    const to = i === BASE_PHASES.length - 1 ? n : Math.max(prev + 1, Math.round((p.to * n) / BASE_DAYS));
-    const out = { ...p, from: prev + 1, to };
-    prev = to;
-    return out;
-  });
+  window.PHASES = custom && custom.length
+    ? custom.map((p, i) => ({ ai: [], job: [], startup: [], milestone: '', ...p, n: i + 1 }))
+    : BASE_PHASES.map((p, i) => {
+      const to = i === BASE_PHASES.length - 1 ? n : Math.max(prev + 1, Math.round((p.to * n) / BASE_DAYS));
+      const out = { ...p, from: prev + 1, to };
+      prev = to;
+      return out;
+    });
   const k = n / BASE_DAYS;
   const scale = (list) => list.map(([t, goal, label]) => [t, Math.max(1, Math.round(goal * k)), label]);
   window.TARGETS = { job: scale(BASE_TARGETS.job), startup: scale(BASE_TARGETS.startup) };
 };
 setPlan(BASE_DAYS);
 
-window.buildDays = function (userId, n = TOTAL_DAYS) {
-  setPlan(n);
+const pick = (arr, i) => (arr && arr.length ? arr[i % arr.length] : '');
+
+window.buildDays = function (userId, n = TOTAL_DAYS, custom) {
+  setPlan(n, custom);
   const rows = [];
   for (const p of PHASES) {
     for (let d = p.from; d <= p.to; d++) {
@@ -71,9 +76,38 @@ window.buildDays = function (userId, n = TOTAL_DAYS) {
       rows.push({
         user_id: userId, day: d, phase: p.n,
         date: new Date(START_DATE + (d - 1) * 864e5).toISOString().slice(0, 10),
-        ai_task: p.ai[i % p.ai.length], job_task: p.job[i % p.job.length], startup_task: p.startup[i % p.startup.length],
+        ai_task: pick(p.ai, i), job_task: pick(p.job, i), startup_task: pick(p.startup, i),
       });
     }
   }
   return rows;
+};
+
+// Turn phases from the AI (track1/2/3 arrays) into contiguous phases covering days 1..n.
+window.normalizePhases = function (raw, n) {
+  const list = (raw || []).filter((p) => p && p.name).sort((a, b) => (a.from_day || 0) - (b.from_day || 0)).slice(0, 12);
+  if (!list.length) return null;
+  let prev = 0;
+  const out = [];
+  list.forEach((p, i) => {
+    if (prev >= n) return;
+    const last = i === list.length - 1;
+    const to = last ? n : Math.min(n - (list.length - 1 - i), Math.max(prev + 1, Math.round(p.to_day || prev + 1)));
+    const clean = (a) => (Array.isArray(a) ? a.map((x) => String(x).slice(0, 200)).filter(Boolean).slice(0, 12) : []);
+    out.push({ name: String(p.name).slice(0, 80), milestone: String(p.milestone || '').slice(0, 200), from: prev + 1, to, ai: clean(p.track1), job: clean(p.track2), startup: clean(p.track3) });
+    prev = to;
+  });
+  if (out.length) out[out.length - 1].to = n;
+  return out;
+};
+
+// Rescale user phases to a new length, keeping their proportions.
+window.rescalePhases = function (phases, oldN, newN) {
+  let prev = 0;
+  return phases.map((p, i) => {
+    const to = i === phases.length - 1 ? newN : Math.min(newN - (phases.length - 1 - i), Math.max(prev + 1, Math.round((p.to * newN) / oldN)));
+    const out = { ...p, from: prev + 1, to };
+    prev = to;
+    return out;
+  });
 };

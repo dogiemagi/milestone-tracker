@@ -15,6 +15,22 @@ python -m http.server 3000
 ```
 `config.js` is git-ignored.
 
+## AI plan assistant (optional)
+New users pick their dates, then choose a starter roadmap, a blank plan, or the AI assistant (chat that drafts a day-by-day plan they review and apply). The assistant runs in a Supabase Edge Function so your Anthropic API key never reaches the browser.
+
+1. Get an API key at https://console.anthropic.com (set a monthly spend limit there).
+2. Deploy the function (Supabase CLI):
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref YOUR-PROJECT-REF
+   npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+   npx supabase functions deploy plan-chat
+   ```
+   Or in the dashboard: Edge Functions > Deploy a new function named `plan-chat`, paste `supabase/functions/plan-chat/index.ts`, then add the `ANTHROPIC_API_KEY` secret.
+3. Optional: `npx supabase secrets set ANTHROPIC_MODEL=claude-haiku-5-5` for a cheaper model (default is `claude-opus-5-5`).
+
+Only signed-in users can call it, and it allows 30 messages per user per hour. Until it is deployed, the chat shows "AI assistant isn't set up yet".
+
 ## 3. Deploy on Render (keeps the key out of Git)
 1. Render > New > Static Site > connect this repo. It reads `render.yaml`
    (build command `node build.js`, publish directory `dist`).
