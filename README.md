@@ -1,25 +1,25 @@
-# 89-Day Challenge Tracker
+# Challenge Tracker
 
 Static web app (HTML + JS) with Supabase as the backend (Postgres + Auth + Row Level Security).
-Tabs: Dashboard, Daily Tracker (89 days pre-filled from the roadmap), Job Hunt, AI Learning, Startup, Mondee Learning, Weekly Review.
+Choose your own start date and number of days (14-365). Tabs: Dashboard, Daily Tracker (with rest and outing days), Job Hunt, AI Learning, Startup, Mondee Learning, Weekly Review.
 
 ## 1. Supabase setup
 1. Create a project at https://supabase.com.
-2. SQL Editor > New query > paste `supabase/schema.sql` > Run.
-3. Project Settings > API: copy the **Project URL** and **anon public key** into `config.js`.
-4. (Optional, easier for personal use) Authentication > Providers > Email > turn off "Confirm email".
-5. Authentication > URL Configuration: add your deployed URL as Site URL once you have it.
-
-The anon key is meant to be public; Row Level Security restricts each user to their own rows. Never put the `service_role` key in this repo.
+2. SQL Editor > New query > paste `supabase/schema.sql` > Run (safe to re-run).
+3. Project Settings > API Keys: note the **Project URL** and the **publishable** key. Never use the secret / service_role key here.
 
 ## 2. Run locally
 ```bash
-npx serve .
+copy config.example.js config.js   # then edit config.js with your URL and key
+python -m http.server 3000
 ```
+`config.js` is git-ignored.
 
-## 3. Deploy
-**Render:** New > Static Site > connect the Git repo. Build command: empty. Publish directory: `.` (or use the included `render.yaml` Blueprint).
-**GitHub Pages:** Settings > Pages > deploy from `main` branch, root folder.
+## 3. Deploy on Render (keeps the key out of Git)
+1. Render > New > Static Site > connect this repo. It reads `render.yaml`
+   (build command `node build.js`, publish directory `dist`).
+2. Add environment variables `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+3. In Supabase > Authentication > URL Configuration, set **Site URL** and **Redirect URLs** to your Render URL.
 
-## 4. First use
-Create an account. The 89 days (13 Nov 2026 to 9 Feb 2027) are seeded automatically on first login.
+`build.js` writes `config.js` into `dist/` at build time from those variables.
+Note: the publishable key is still visible to anyone who views the live site, because the browser needs it. Row Level Security is what protects your data.
