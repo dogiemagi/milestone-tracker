@@ -37,6 +37,8 @@ const ICONS = {
   building: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>',
+  down: '<path d="m6 9 6 6 6-6"/>',
+  tick: '<path d="M20 6 9 17l-5-5"/>',
   left: '<path d="m15 18-6-6 6-6"/>',
   right: '<path d="m9 18 6-6-6-6"/>',
   coffee:'<path d="M17 8h1a4 4 0 1 1 0 8h-1M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z"/><path d="M6 2v2M10 2v2M14 2v2"/>',
@@ -74,6 +76,66 @@ function toggleTheme() {
 $('#theme').onclick = toggleTheme;
 $('#auththeme').onclick = toggleTheme;
 paintTheme();
+
+// ---------- Scroll to top ----------
+addEventListener('scroll', () => $('#totop').classList.toggle('show', scrollY > 400), { passive: true });
+$('#totop').onclick = () => scrollTo({ top: 0, behavior: 'smooth' });
+
+// ---------- Custom dropdowns (replace native <select> popups) ----------
+const DOT = { 'Completed': 'var(--ok)', 'Partially Completed': 'var(--warn)', 'In Progress': 'var(--accent)', 'Skipped': 'var(--muted)', 'Rest Day': '#0ea5e9', 'Outing Day': '#ec4899', 'Not Started': 'var(--line)' };
+const ddDot = (t) => (DOT[t] ? `<i class="dd-dot" style="background:${DOT[t]}"></i>` : '');
+let openDD = null;
+function closeDD() { if (openDD) { openDD.menu.remove(); openDD.btn.classList.remove('open'); openDD = null; } }
+function showDD(sel, btn) {
+  closeDD();
+  const menu = document.createElement('div');
+  menu.className = 'dd-menu'; menu.setAttribute('role', 'listbox');
+  menu.innerHTML = [...sel.options].map((o, i) => `<button type="button" class="dd-opt ${i === sel.selectedIndex ? 'on' : ''}" role="option" data-i="${i}">${ddDot(o.text)}<span class="dd-t">${esc(o.text)}</span>${i === sel.selectedIndex ? icon('tick', 15) : ''}</button>`).join('');
+  document.body.appendChild(menu);
+  const r = btn.getBoundingClientRect();
+  menu.style.minWidth = r.width + 'px';
+  const h = menu.offsetHeight, below = innerHeight - r.bottom;
+  menu.style.left = Math.max(8, Math.min(r.left, innerWidth - menu.offsetWidth - 8)) + 'px';
+  menu.style.top = (below >= h + 8 || below > r.top ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + 'px';
+  btn.classList.add('open');
+  openDD = { menu, btn };
+  (menu.querySelector('.on') || menu.firstChild)?.focus();
+  menu.onclick = (e) => {
+    const o = e.target.closest('.dd-opt'); if (!o) return;
+    sel.selectedIndex = +o.dataset.i;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    closeDD(); btn.focus();
+  };
+  menu.onkeydown = (e) => {
+    const opts = [...menu.querySelectorAll('.dd-opt')], i = opts.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); opts[Math.min(opts.length - 1, i + 1)].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); opts[Math.max(0, i - 1)].focus(); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeDD(); btn.focus(); }
+    else if (e.key === 'Tab') closeDD();
+  };
+}
+function enhanceSelects() {
+  document.querySelectorAll('select:not([data-enh])').forEach((sel) => {
+    sel.dataset.enh = '1';
+    const wrap = document.createElement('div');
+    wrap.className = 'dd ' + sel.className;
+    sel.className = '';
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'dd-btn'; btn.setAttribute('aria-haspopup', 'listbox');
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.append(btn, sel);
+    sel.hidden = true;
+    const paint = () => { const o = sel.options[sel.selectedIndex]; btn.innerHTML = `${ddDot(o?.text)}<span class="dd-t">${esc(o?.text || '')}</span>${icon('down', 16)}`; };
+    paint(); sel.addEventListener('change', paint);
+    btn.onclick = () => (openDD && openDD.btn === btn ? closeDD() : showDD(sel, btn));
+    btn.onkeydown = (e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); showDD(sel, btn); } };
+  });
+}
+document.addEventListener('mousedown', (e) => { if (openDD && !openDD.menu.contains(e.target) && !openDD.btn.contains(e.target)) closeDD(); });
+addEventListener('scroll', (e) => { if (openDD && !openDD.menu.contains(e.target)) closeDD(); }, true);
+addEventListener('resize', closeDD);
+new MutationObserver(() => { if (openDD && !document.contains(openDD.btn)) closeDD(); enhanceSelects(); }).observe(document.body, { childList: true, subtree: true });
+enhanceSelects();
 
 // ---------- Calendar picker (used in settings) ----------
 function mountCalendar(el, getStart, getN, onPick) {

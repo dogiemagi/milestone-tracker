@@ -36,6 +36,26 @@
     :root:not([data-theme="light"]) .card { background:linear-gradient(180deg,color-mix(in srgb,var(--card) 92%,#fff),var(--card)); }
     :root:not([data-theme="light"]) .chip, :root:not([data-theme="light"]) .qbtn, :root:not([data-theme="light"]) .seg button, :root:not([data-theme="light"]) .iconbtn, :root:not([data-theme="light"]) .btn.ghost { background:var(--soft); }
   }
+  .totop { position:fixed; right:22px; bottom:22px; z-index:40; width:46px; height:46px; border-radius:50%; border:0; color:#fff; background:linear-gradient(135deg,var(--accent),var(--accent2)); box-shadow:0 8px 22px rgba(99,102,241,.45); display:grid; place-items:center; opacity:0; transform:translateY(12px); pointer-events:none; transition:opacity .2s, transform .2s; }
+  .totop.show { opacity:1; transform:none; pointer-events:auto; }
+  .totop:hover { filter:brightness(1.1); }
+  /* custom dropdown */
+  .dd { position:relative; }
+  .dd-btn { width:100%; display:flex; align-items:center; gap:8px; text-align:left; background:var(--input,var(--card)); color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:8px 10px; transition:border-color .15s, box-shadow .15s; }
+  .dd-btn:hover { border-color:var(--muted); }
+  .dd-btn:focus-visible, .dd-btn.open { outline:0; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent); }
+  .dd-btn .dd-t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dd-btn > .i { color:var(--muted); transition:transform .15s; } .dd-btn.open > .i { transform:rotate(180deg); }
+  .dd.st { width:auto; min-width:180px; } .dd.st .dd-btn { font-weight:600; }
+  .toolbar .dd { width:auto; min-width:190px; }
+  .dd-dot { width:9px; height:9px; border-radius:50%; flex:none; box-shadow:0 0 0 1px rgba(0,0,0,.08) inset; }
+  .dd-menu { position:fixed; z-index:200; max-height:320px; overflow:auto; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:6px; box-shadow:0 12px 32px rgba(10,10,30,.28); animation:ddin .12s ease-out; }
+  @keyframes ddin { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+  .dd-opt { width:100%; display:flex; align-items:center; gap:10px; background:none; border:0; color:var(--fg); text-align:left; padding:8px 10px; border-radius:8px; }
+  .dd-opt .dd-t { flex:1; white-space:nowrap; }
+  .dd-opt .i { color:var(--accent); }
+  .dd-opt:hover, .dd-opt:focus-visible { outline:0; background:var(--soft); }
+  .dd-opt.on { background:color-mix(in srgb,var(--accent) 14%,transparent); font-weight:600; }
   .topr { display:flex; align-items:center; gap:10px; }
   .iconbtn { width:42px; height:42px; flex:none; display:grid; place-items:center; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--fg); box-shadow:var(--shadow); }
   .iconbtn:hover { color:var(--accent); border-color:var(--accent); }
@@ -239,6 +259,8 @@
     <main id="view"></main>
   </div>
 </div>
+
+<button id="totop" class="totop" type="button" aria-label="Scroll to top" title="Back to top"><svg class="i" width="20" height="20" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg></button>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
