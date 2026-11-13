@@ -61,7 +61,8 @@ const isDark = () => document.documentElement.dataset.theme
   : matchMedia('(prefers-color-scheme: dark)').matches;
 function paintTheme() {
   const dark = isDark();
-  $('#theme').innerHTML = `${icon(dark ? 'sun' : 'moon', 16)} <span class="lb">${dark ? 'Light mode' : 'Dark mode'}</span>`;
+  $('#theme').innerHTML = icon(dark ? 'sun' : 'moon', 19);
+  $('#theme').title = $('#theme').ariaLabel = dark ? 'Switch to light mode' : 'Switch to dark mode';
   $('#auththeme').innerHTML = icon(dark ? 'sun' : 'moon', 18);
 }
 function toggleTheme() {
@@ -145,9 +146,7 @@ function applyChallenge(iso, n) {
   window.START_DATE = Date.parse(iso + 'T00:00:00Z');
   setPlan(n);
   $('#brandsub').textContent = `${longDate(iso)} - ${longDate(endISO())}`;
-  $('#brandlogo').textContent = TOTAL_DAYS;
-  $('#brandtitle').textContent = `${TOTAL_DAYS}-Day Challenge`;
-  document.title = `${TOTAL_DAYS}-Day Challenge Tracker`;
+  document.title = 'Challenge Tracker';
 }
 const untouched = (d) => d.status === 'Not Started' && !d.notes && !d.next_action && d.actual_hours == null;
 
@@ -155,19 +154,41 @@ function changeSettings() {
   const m = document.createElement('div');
   m.className = 'modal';
   m.innerHTML = `<div class="card"><h3>Challenge settings</h3>
-    <label><span class="lbl">Start date</span><input type="date" id="sd" value="${startISO()}"></label>
+    <div class="dates">
+      <button type="button" class="dpick on" data-mode="start"><span class="lbl">Start date</span><b id="sdt"></b></button>
+      <button type="button" class="dpick" data-mode="end"><span class="lbl">End date</span><b id="edt"></b></button>
+      <div class="dlen"><span class="lbl">Days</span><b id="nlen"></b></div>
+    </div>
+    <p class="muted" id="hint" style="margin:8px 0 0">Pick the <b>start</b> date on the calendar, then the <b>end</b> date.</p>
     <div id="cal" class="cal"></div>
-    <label style="display:block;margin-top:12px"><span class="lbl">Number of days (14 - 365)</span><input type="number" id="nd" min="14" max="365" value="${TOTAL_DAYS}"></label>
-    <div class="chips" style="margin-top:8px">${[30, 60, 89, 100, 180].map((n) => `<button type="button" class="chip" data-n="${n}">${n}</button>`).join('')}</div>
-    <p class="muted">Ends on <b id="endd"></b>. The roadmap phases and targets scale to the new length. Days you already worked on keep their notes and hours; untouched days get refreshed tasks.</p>
+    <div class="chips" style="margin-top:8px"><span class="muted" style="align-self:center">Quick length:</span>${[30, 60, 89, 100, 180].map((n) => `<button type="button" class="chip" data-n="${n}">${n}</button>`).join('')}</div>
+    <input type="hidden" id="sd" value="${startISO()}"><input type="hidden" id="nd" value="${TOTAL_DAYS}">
+    <p class="muted">Length must be 14 to 365 days. The roadmap phases and targets scale to the new length. Days you already worked on keep their notes and hours; untouched days get refreshed tasks.</p>
     <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ghost" id="mc">Cancel</button><button class="btn" id="ms">Save</button></div></div>`;
   document.body.appendChild(m);
-  const upd = () => { const v = $('#sd').value, n = +$('#nd').value; $('#endd').textContent = v && n >= 14 ? longDate(isoPlus(v, n - 1)) : '-'; };
-  const cal = mountCalendar($('#cal'), () => $('#sd').value, () => +$('#nd').value || 0, (iso) => { $('#sd').value = iso; upd(); cal.draw(); });
-  upd(); $('#sd').oninput = () => { upd(); cal.sync(); }; $('#nd').oninput = () => { upd(); cal.draw(); };
+  let mode = 'start';
+  const clampN = (n) => Math.max(14, Math.min(365, n));
+  const upd = () => {
+    const v = $('#sd').value, n = +$('#nd').value;
+    $('#sdt').textContent = longDate(v); $('#edt').textContent = longDate(isoPlus(v, n - 1)); $('#nlen').textContent = n;
+    m.querySelectorAll('.dpick').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
+    $('#hint').innerHTML = mode === 'start' ? 'Click a day to set the <b>start</b> date.' : 'Now click a day to set the <b>end</b> date (14 to 365 days after the start).';
+  };
+  const cal = mountCalendar($('#cal'), () => $('#sd').value, () => +$('#nd').value || 0, (iso) => {
+    if (mode === 'start') { $('#sd').value = iso; mode = 'end'; }
+    else {
+      const diff = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse($('#sd').value + 'T00:00:00Z')) / 864e5) + 1;
+      $('#nd').value = clampN(diff);
+      if (diff < 14 || diff > 365) $('#hint').dataset.warn = '1';
+    }
+    upd(); cal.draw();
+    if ($('#hint').dataset.warn) { $('#hint').dataset.warn = ''; $('#hint').innerHTML = 'Length must be 14 to 365 days, so the end date was adjusted.'; }
+  });
+  upd();
   m.onclick = (e) => {
     if (e.target === m || e.target.id === 'mc') m.remove();
     const c = e.target.closest('[data-n]'); if (c) { $('#nd').value = c.dataset.n; upd(); cal.draw(); }
+    const p = e.target.closest('[data-mode]'); if (p) { mode = p.dataset.mode; upd(); }
   };
   $('#ms').onclick = async () => {
     const iso = $('#sd').value, n = Math.round(+$('#nd').value);
@@ -261,7 +282,7 @@ async function dashboard() {
       <div style="display:flex;gap:10px;align-items:end"><div style="width:110px"><span class="lbl">Hours today</span><input type="number" step="0.25" data-id="${today.id}" data-k="actual_hours" value="${today.actual_hours ?? ''}"></div>
         <div style="flex:1"><span class="lbl">Quick note</span><input data-id="${today.id}" data-k="notes" value="${esc(today.notes)}" placeholder="What did you learn?"></div></div>
     </div>
-    <div class="card"><h3>${N}-day map</h3>
+    <div class="card"><h3>Challenge map</h3>
       <div class="heat">${days.map((d) => `<button class="${SCLS[d.status] || ''} ${d.day === dn ? 'today' : ''}" data-day="${d.day}" title="Day ${d.day} · ${d.date} · ${d.status}">${d.day}</button>`).join('')}</div>
       <div class="legend"><span><i style="background:var(--ok)"></i>Completed</span><span><i style="background:var(--warn)"></i>Partial</span><span><i style="background:var(--accent)"></i>In progress</span><span><i style="background:var(--line)"></i>Skipped</span><span><i style="background:#0ea5e9"></i>Rest day</span><span><i style="background:#ec4899"></i>Outing day</span><span><i style="background:var(--soft);border:1px solid var(--line)"></i>Not started</span></div>
     </div>
